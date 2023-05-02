@@ -4,6 +4,9 @@
 // that describes a Thing of type https://ci.mines-stetienne.fr/kg/ontology#PhantomX
 robot_td("https://raw.githubusercontent.com/Interactions-HSG/example-tds/main/tds/leubot1.ttl").
 
+// initial beliefs
+can_achieve(G) :- .relevant_plans({+!G[scheme(_)]}, LP) & LP \== [].
+
 /* Initial goals */
 !start. // the agent has the goal to start
 
@@ -37,13 +40,32 @@ robot_td("https://raw.githubusercontent.com/Interactions-HSG/example-tds/main/td
 	 * follow the instructions here: https://github.com/HSG-WAS-SS23/exercise-8/blob/main/README.md#test-with-the-real-phantomx-reactor-robot-arm
 	 */
 	// creates a ThingArtifact based on the TD of the robotic arm
-	makeArtifact("leubot1", "wot.ThingArtifact", [Location, true], Leubot1Id); 
+	makeArtifact("leubot1", "wot.ThingArtifact", [Location, true], Leubot1Id);
 	
 	// sets the API key for controlling the robotic arm as an authenticated user
-	//setAPIKey("77d7a2250abbdb59c6f6324bf1dcddb5")[artifact_id(leubot1)];
+	//setAPIKey("f2a8969781d581d53f9661f9bf16c45b")[artifact_id(leubot1)];
 
 	// invokes the action onto:SetWristAngle for manifesting the temperature with the wrist of the robotic arm
 	invokeAction("https://ci.mines-stetienne.fr/kg/ontology#SetWristAngle", ["https://www.w3.org/2019/wot/json-schema#IntegerSchema"], [Degrees])[artifact_id(leubot1)].
+
+
+@work_plan
++worktobedone(WspName, OrgName, OpenGoal, OpenRole) : true <-
+	joinWorkspace(WspName, WspID1);
+	lookupArtifact(OrgName, ArtId);
+	focus(ArtId);
+	!focusing(OpenGoal, OpenRole).
+
+@focus_plan
+ +!focusing(OpenGoal, OpenRole) : group(GroupName, _, _) & scheme(SchemeName, _, _) <-
+	lookupArtifact(GroupName, GroupId);
+	focus(GroupId);
+	lookupArtifact(SchemeName, SchemeId);
+	focus(SchemeId);
+	?can_achieve(OpenGoal);
+	adoptRole(OpenRole);
+	.print("accepted role ", OpenRole).
+
 
 /* Import behavior of agents that work in CArtAgO environments */
 { include("$jacamoJar/templates/common-cartago.asl") }

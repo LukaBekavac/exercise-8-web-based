@@ -3,6 +3,10 @@
 
 /* Initial beliefs and rules */
 
+role_goal(R, G) :- role_mission(R, _, M) & mission_goal(M, G).
+can_achieve(G) :- .relevant_plans({+!G[scheme(_)]}, LP) & LP \== [].
+i_have_plans_for(R) :- not (role_goal(R, G) & not can_achieve(G)).
+
 /* Initial goals */
 !start. // the agent has the goal to start
 
@@ -27,9 +31,33 @@
 	.print("I will read the temperature");
 	makeArtifact("weatherStation", "tools.WeatherStation", [], WeatherStationId); // creates a weather station artifact
 	focus(WeatherStationId); // focuses on the weather station artifact
-	readCurrentTemperature(47.42, 9.37, Celcius); // reads the current temperature using the artifact
+	readCurrentTemperature(43.50, 16.44, Celcius); // reads the current temperature using the artifact
 	.print("Temperature Reading (Celcius): ", Celcius);
 	.broadcast(tell, temperature(Celcius)). // broadcasts the temperature reading
+
+@join_plan
++joinOrg(WspName, OrgName): true <-
+    joinWorkspace(WspName, WspID1);
+    lookupArtifact(OrgName, ArtId);
+    focus(ArtId);
+    !focusing;
+    !accept;
+    .print("I joined the organization ", OrgName).
+
+@focus_plan
++!focusing : group(GroupName, _, _) & scheme(SchemeName, _, _) <-
+	lookupArtifact(GroupName, GroupId);
+	focus(GroupId);
+	lookupArtifact(SchemeName, SchemeId);
+	focus(SchemeId).
+
+@accept_role_plan
++!accept : role_goal(R, G) & can_achieve(G) <-
+	 adoptRole(R);
+	.print("accepted role ", R).
+
+
+
 
 /* Import behavior of agents that work in CArtAgO environments */
 { include("$jacamoJar/templates/common-cartago.asl") }

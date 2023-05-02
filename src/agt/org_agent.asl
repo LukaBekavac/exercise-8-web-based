@@ -5,6 +5,8 @@ org_name("lab_monitoring_org"). // the agent beliefs that it can manage organiza
 group_name("monitoring_team"). // the agent beliefs that it can manage groups with the id "monitoring_team"
 sch_name("monitoring_scheme"). // the agent beliefs that it can manage schemes with the id "monitoring_scheme"
 
+role_goal(R, G) :- role_mission(R, _, M) & mission_goal(M, G).
+
 /* Initial goals */
 !start. // the agent has the goal to start
 
@@ -16,6 +18,7 @@ sch_name("monitoring_scheme"). // the agent beliefs that it can manage schemes w
 */
 @start_plan
 +!start : org_name(OrgName) & group_name(GroupName) & sch_name(SchemeName) <-
+  !test_wsp;
   .print("Hello world").
 
 /* 
@@ -28,7 +31,24 @@ sch_name("monitoring_scheme"). // the agent beliefs that it can manage schemes w
 @test_formation_status_is_ok_plan
 +?formationStatus(ok)[artifact_id(G)] : group(GroupName,_,G)[artifact_id(OrgName)] <-
   .print("Waiting for group ", GroupName," to become well-formed");
+  !formGroup;
   .wait({+formationStatus(ok)[artifact_id(G)]}). // waits until the belief is added in the belief base
+
+@form_group_plan
++!formGroup : takenRole(R) <-
+    .print("Role filled: ", R);
+    .findall(G, (role_goal(Role,G) & R \== Role), L);
+    .print("open Goals Remaining: ", L);
+    L = [OpenGoal];
+    ?role_goal(OpenRole, OpenGoal)
+    .print("open Goal ", OpenGoal, OpenRole);
+    .broadcast(tell, worktobedone("workspace","lab_monitoring_org", OpenGoal, OpenRole)).
+
+
+  +!formGroup : true <-
+    .wait(1500);
+    .print("Looking again for open goals");
+    !formGroup.
 
 /* 
  * Plan for reacting to the addition of the goal !inspect(OrganizationalArtifactId)
@@ -53,7 +73,32 @@ sch_name("monitoring_scheme"). // the agent beliefs that it can manage schemes w
 */
 @play_plan
 +play(Ag, Role, GroupId) : true <-
-  .print("Agent ", Ag, " adopted the role ", Role, " in group ", GroupId).
+  .print("Agent ", Ag, " accepted the role ", Role, " in group ", GroupId);
+  +takenRole(Role).
+
+@test_wsp
++!test_wsp : org_name(OrgName) & group_name(GroupName) & sch_name(SchemeName) <-
+// Create and join workspace
+println("Creating workspace...");
+createWorkspace("workspace");
+joinWorkspace("workspace",WspID1);
+makeArtifact(OrgName,"ora4mas.nopl.OrgBoard",["src/org/org-spec.xml"],ArtId);
+focus(ArtId);
+// Create and focus on the Group Board artifact
+println("Creating Group Board artifact...");
+createGroup(GroupName, monitoring_team, GroupId);
+focus(GroupId);
+// Create and focus on the Scheme Board artifact
+println("Creating Scheme Board artifact...");
+createScheme(SchemeName, monitoring_scheme, SchemeId);
+focus(SchemeId);
+println("Focusing on Scheme Board artifact...");
+.broadcast(tell, joinOrg(workspace, OrgName));
+.broadcast(tell, new_group("monitoring_team"));
+// Wait until the group is well-formed
+?formationStatus(ok)[artifact_id(GroupId)];
+addScheme(SchemeName)[artifact_id(GroupId)].
+
 
 /* Import behavior of agents that work in CArtAgO environments */
 { include("$jacamoJar/templates/common-cartago.asl") }
